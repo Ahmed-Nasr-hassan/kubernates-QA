@@ -148,3 +148,8 @@ spec:
 In Kubernetes, API versions are used to indicate which version of the Kubernetes API is being used to create or manage resources. The "v1" API version is the core Kubernetes API, and includes basic resources such as Pods and Services. However, additional resources and features, such as ReplicaSets and Deployments, are not included in the core API and are instead part of the "apps/v1" API version.
 
 This is because ReplicaSets and Deployments are higher level abstractions that are built on top of the core resources like Pods. They provide additional functionality, such as replication and self-healing, that is not included in the core API. By grouping these additional resources into separate API versions, it allows for backwards compatibility and enables users to more easily adopt new features as they are added to Kubernetes.
+
+```bash
+controlplane $ k api-resources | grep "replicaset"
+replicasets                       rs           apps/v1                                true         ReplicaSet
+```
