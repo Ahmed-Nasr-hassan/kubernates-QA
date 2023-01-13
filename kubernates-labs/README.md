@@ -72,11 +72,34 @@ new-replica-set   4         4         0       11m
 
 There is image called "busybox777"
 
+```bash
+controlplane $ k describe pods new-replica-set-llbmd | grep "Failed"
+  Warning  Failed     3m28s (x4 over 4m53s)  kubelet            Failed to pull image "busybox777": rpc error: code = Unknown desc = failed to pull and unpack image "docker.io/library/busybox777:latest": failed to resolve reference "docker.io/library/busybox777:latest": pull access denied, repository does not exist or may require authorization: server message: insufficient_scope: authorization failed
+  Warning  Failed     3m28s (x4 over 4m53s)  kubelet            Error: ErrImagePull
+  Warning  Failed     3m1s (x6 over 4m53s)   kubelet            Error: ImagePullBackOff
+```
+
 6-Delete any one of the 4 PODs
 How many pods now
 
+4
+
+```bash
+controlplane $ k delete pod new-replica-set-79cxt 
+pod "new-replica-set-79cxt" deleted
+controlplane $ k get pods 
+NAME                    READY   STATUS             RESTARTS   AGE
+new-replica-set-brm9l   0/1     ImagePullBackOff   0          15m
+new-replica-set-gcch6   0/1     ImagePullBackOff   0          15m
+new-replica-set-llbmd   0/1     ErrImagePull       0          7s
+new-replica-set-wfmp7   0/1     ImagePullBackOff   0          15m
+
+```
 
 7-Why are there still 4 PODs, even after you deleted one?
+
+As the desired replicas equals to 4,
+so it maintain the number of pods to be 4
 
 
 8-Create a ReplicaSet using the below yaml
@@ -100,3 +123,25 @@ spec:
       containers:
       - name: nginx
         image: nginx
+
+## set >> apiVersion: apps/v1
+
+```bash
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: replicaset-1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+```
