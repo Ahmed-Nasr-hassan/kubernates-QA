@@ -1,1 +1,102 @@
 # kubernates-QA
+
+## Lab2
+
+1-Create a ReplicaSet using the below yaml
+
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: new-replica-set
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      name: busybox-pod
+  template:
+    metadata:
+      labels:
+        name: busybox-pod
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - echo Hello Kubernetes! && sleep 3600
+        image: busybox777
+        imagePullPolicy: Always
+        name: busybox-container
+
+``` bash
+controlplane $ kubectl apply -f busy-box.yaml 
+replicaset.apps/new-replica-set created
+controlplane $ k get rs
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         0       6s
+```
+
+
+2-How many PODs are DESIRED in the new-replica-set?
+
+``` bash
+controlplane $ k describe rs new-replica-set | grep "Replicas"
+Replicas:     4 current / 4 desired
+#another solution
+controlplane $ k get po | grep "new-replica-set" | wc -l
+4
+```
+
+3-What is the image used to create the pods in the new-replica-set?
+
+```bash
+controlplane $ k describe rs new-replica-set | grep "Image"
+    Image:      busybox777
+```
+
+4-How many PODs are READY in the new-replica-set?
+
+0
+
+```bash
+controlplane $ k describe rs new-replica-set | grep "Pods Status"
+Pods Status:  0 Running / 4 Waiting / 0 Succeeded / 0 Failed
+#another solution
+controlplane $ k get rs new-replica-set                
+NAME              DESIRED   CURRENT   READY   AGE
+new-replica-set   4         4         0       11m
+
+```
+
+5-Why do you think the PODs are not ready?
+
+There is image called "busybox777"
+
+6-Delete any one of the 4 PODs
+How many pods now
+
+
+7-Why are there still 4 PODs, even after you deleted one?
+
+
+8-Create a ReplicaSet using the below yaml
+
+There is an issue with the file, so try to fix it.
+
+apiVersion: v1
+kind: ReplicaSet
+metadata:
+  name: replicaset-1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        tier: frontend
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
