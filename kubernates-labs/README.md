@@ -440,7 +440,7 @@ metadata:
 spec:
   type: NodePort
   selector:
-    app.kubernetes.io/name: simple-webapp
+    name: simple-webapp
   ports:
       # By default and for convenience, the `targetPort` is set to the same value as the `port` field.
     - port: 8080
@@ -462,7 +462,7 @@ Name:                     webapp-service
 Namespace:                default
 Labels:                   <none>
 Annotations:              <none>
-Selector:                 app.kubernetes.io/name=simple-webapp
+Selector:                 name=simple-webapp
 Type:                     NodePort
 IP Family Policy:         SingleStack
 IP Families:              IPv4
