@@ -477,5 +477,148 @@ External Traffic Policy:  Cluster
 Events:                   <none>
 ```
 
+---
 
+## lab5
+
+### Create basic resources
+
+- Create the specified Namespace
+- Create a deployment nginx with 3 replicas
+- Expose the deployment on port 80
+
+```bash
+controlplane $ k create ns nasr-space
+namespace/nasr-space created
+controlplane $ vi nasr-deploy.yml
+```
+
+```bash
+# nasr-deploy.yml file
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  namespace: nasr-space
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+```
+
+```bash
+controlplane $ k apply -f nasr-deploy.yml 
+deployment.apps/nginx-deployment created
+controlplane $ k get all -n nasr-space                 
+NAME                                    READY   STATUS    RESTARTS   AGE
+pod/nginx-deployment-7f456874f4-6xchb   1/1     Running   0          51s
+pod/nginx-deployment-7f456874f4-gg8nt   1/1     Running   0          51s
+pod/nginx-deployment-7f456874f4-tcz9r   1/1     Running   0          51s
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-deployment   3/3     3            3           52s
+```
+
+
+### Create a CronJob for listing the EndPoints
+
+1. Create a **serviceaccount cronjob—sa
+
+```bash
+controlplane $ k create serviceaccount cronjopn-sa
+serviceaccount/cronjopn-sa created
+```
+
+2. Create a Role that allows listing all the services and endpoints
+
+```bash
+# role.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: nasr-space
+  name: svc-endpoints-list
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["services","endpoints"]
+  verbs: ["list","get"]                                     
+```
+
+```bash
+controlplane $ k apply -f role.yml 
+role.rbac.authorization.k8s.io/svc-endpoints-list created
+```
+
+3. Link the Role with the created SA
+
+```bash
+# rolebinding.yml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: my-rolebinding
+  namespace: nasr-space
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: svc-endpoints-list
+subjects:
+- kind: ServiceAccount
+  name: cronjob-sa
+  namespace: nasr-space
+
+```
+
+```bash
+controlplane $ k apply -f rolebinding.yml 
+rolebinding.rbac.authorization.k8s.io/my-rolebinding created
+```
+
+4. Create a CronJob that lists the endpoints in that namespace every minute and paste the output for the first pod created
+
+```bash
+# my-cronjob.yml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: list-endpoints-in-nasr-space
+  namespace: nasr-space
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: cronjob-sa
+          containers:
+          - name: bitnami-container
+            image: bitnami/kubectl:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - sh
+            - -c
+            - "kubectl get endpoints" # "sleep 4000" # to keep the pod running
+          restartPolicy: OnFailure
+
+```
+
+5. After listing try to delete the 3 nginx pods ? again try to view the logs for the newly created pod for that cronJob what do you think happened ?
+
+```bash
+k delete deployment nginx-deployment
+k logs -n nasr-space list-endpoints-in-nasr-space-27896516-c5p8w 
+```
 
