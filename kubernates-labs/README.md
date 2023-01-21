@@ -827,7 +827,7 @@ k logs -n nasr-space list-endpoints-in-nasr-space-27896516-c5p8w
 
     status: Bound
 
-9. create vp, vpc, and mount a pod using vpc 
+9. create pv, pvc, and mount a pod using pvc
 
   pv yaml file - nasr-pv.yml
 
