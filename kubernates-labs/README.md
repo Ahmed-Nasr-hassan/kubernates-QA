@@ -36,7 +36,6 @@ NAME              DESIRED   CURRENT   READY   AGE
 new-replica-set   4         4         0       6s
 ```
 
-
 2-How many PODs are DESIRED in the new-replica-set?
 
 ``` bash
@@ -101,7 +100,6 @@ new-replica-set-wfmp7   0/1     ImagePullBackOff   0          15m
 As the desired replicas equals to 4,
 so it maintain the number of pods to be 4
 
-
 8-Create a ReplicaSet using the below yaml
 
 There is an issue with the file, so try to fix it.
@@ -145,6 +143,7 @@ spec:
       - name: nginx
         image: nginx
 ```
+
 In Kubernetes, API versions are used to indicate which version of the Kubernetes API is being used to create or manage resources. The "v1" API version is the core Kubernetes API, and includes basic resources such as Pods and Services. However, additional resources and features, such as ReplicaSets and Deployments, are not included in the core API and are instead part of the "apps/v1" API version.
 
 This is because ReplicaSets and Deployments are higher level abstractions that are built on top of the core resources like Pods. They provide additional functionality, such as replication and self-healing, that is not included in the core API. By grouping these additional resources into separate API versions, it allows for backwards compatibility and enables users to more easily adopt new features as they are added to Kubernetes.
@@ -186,6 +185,7 @@ spec:
         - containerPort: 80
 ~                           
 ```
+
 ```bash
 controlplane $ vi my-deploy.yml
 controlplane $ k apply -f my-deploy.yml  
@@ -238,7 +238,6 @@ controlplane $ k get deployments.apps
 No resources found in default namespace.
 ```
 
-
 6-Create deployment from the below yaml
 
 apiVersion: apps/v1
@@ -269,7 +268,6 @@ spec:
         image: busybox888
         imagePullPolicy: Always
         name: busybox-container
-        
 
 ```bash
 controlplane $ vi q6-deploy.yml # deployment definition file
@@ -279,12 +277,12 @@ deployment.apps/frontend-deployment created
 
 7-How many ReplicaSets exist on the system now?
 1
+
 ```bash
 controlplane $ k get rs
 NAME                             DESIRED   CURRENT   READY   AGE
 frontend-deployment-7fbf4f5cd9   4         4         0       5m16s
 ```
-
 
 8-How many PODs exist on the system now?
 4
@@ -326,7 +324,7 @@ controlplane $ k describe pod frontend-deployment-7fbf4f5cd9-rtk4d | grep "Faile
   Warning  Failed       11m (x6 over 13m)     kubelet            Error: ImagePullBackOff
 ```
 
-12-Create a new Deployment using the below yaml 
+12-Create a new Deployment using the below yaml
 
 No yml file exist
 
@@ -336,6 +334,7 @@ and correct the value of kind.
 No yml file exist
 
 ---
+
 ## Lab4
 
 1-How many Services exist on the system?
@@ -421,7 +420,7 @@ controlplane $ k describe pod simple-webapp-deployment-c7c68b6f4-llnx6 | grep "I
     Image:          kodekloud/simple-webapp:red
 ```
 
-8-Create a new service to access the web application using the the below 
+8-Create a new service to access the web application using the the below
 
 Name: webapp-service
 Type: NodePort
@@ -532,7 +531,6 @@ NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
 deployment.apps/nginx-deployment   3/3     3            3           52s
 ```
 
-
 ### Create a CronJob for listing the EndPoints
 
 1. Create a **serviceaccount cronjob—sa
@@ -622,3 +620,295 @@ k delete deployment nginx-deployment
 k logs -n nasr-space list-endpoints-in-nasr-space-27896516-c5p8w 
 ```
 
+## lab6
+
+1. create pod from the below yaml file
+
+    ```yaml
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: webapp
+        spec:
+          containers:
+          - env:
+            - name: LOG_HANDLERS
+              value: file
+            image: kodekloud/event-simulator
+            imagePullPolicy: Always
+            name: event-simulator
+    ```
+
+  ```bash
+    controlplane $ vi lab6-pod.yml
+    controlplane $ k apply -f lab6-pod.yml 
+    pod/webapp created
+    controlplane $ k get po
+    NAME     READY   STATUS    RESTARTS   AGE
+    webapp   1/1     Running   0          12s
+    
+  ```
+
+2. Configure a volume to store these logs at /var/log/webapp on the host.
+
+    Use the spec provided below.
+
+    ```yaml
+      Name: webapp
+
+      Image Name: kodekloud/event-simulator
+
+      Volume HostPath: /var/log/webapp
+
+      Volume Mount: /log
+    ```
+
+    updated yaml
+
+    ```yaml
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: webapp
+        spec:
+          volumes:
+          - name: webapp
+            hostPath:
+              path: /var/log/webapp
+          containers:
+          - volumeMounts:
+            - name: webapp
+              mountPath: /log
+            env:
+            - name: LOG_HANDLERS
+              value: file
+            image: kodekloud/event-simulator
+            imagePullPolicy: Always
+            name: event-simulator
+    ```
+
+    ```bash
+      controlplane $ k delete pod webapp 
+      pod "webapp" deleted
+      controlplane $ k apply -f lab6-pod.yml 
+      pod/webapp created
+      controlplane $ k get po 
+      NAME     READY   STATUS    RESTARTS   AGE
+      webapp   1/1     Running   0          19s
+    ```
+
+3. Create a Persistent Volume with the given specification.
+
+  ```yaml
+    Volume Name: pv-log
+
+    Storage: 100Mi
+
+    Access Modes: ReadWriteMany
+
+    Host Path: /pv/log
+
+    Reclaim Policy: Retain
+  ```
+  
+  persistent volume yaml file: my-pv.yml
+
+  ```yaml
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: pv-log
+    spec:
+      capacity:
+        storage: 100Mi
+      accessModes:
+        - ReadWriteMany
+      persistentVolumeReclaimPolicy: Retain
+      hostPath:
+        path: "/pv/log"
+  ```
+
+  In terminal
+
+  ```bash
+    controlplane $ vi my-pv.yml
+    controlplane $ k apply -f my-pv.yml 
+    persistentvolume/pv-log created
+  ```
+
+4. Let us claim some of that storage for our application. Create a Persistent
+
+    Volume Claim with the given specification.
+
+    ```yaml
+      Volume Name: claim-log-1
+
+      Storage Request: 50Mi
+
+      Access Modes: ReadWriteOnce
+    ```
+
+    persistent volume claim yaml file: my-pvc.yml
+
+    ```yaml
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: claim-log-1
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 50Mi
+    ```
+
+    In terminal
+
+    ```bash
+      controlplane $ vi my-pvc.yml
+      controlplane $ k apply -f my-pvc.yml 
+      persistentvolumeclaim/claim-log-1 created
+    ```
+
+
+5. What is the state of the Persistent Volume Claim?
+
+    status: Pending
+
+  ```bash
+    controlplane $ k get pvc
+    NAME          STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+    claim-log-1   Pending                                                     3m10s
+  ```
+
+6. What is the state of the Persistent Volume?
+
+    status: Available
+
+    ```bash
+      controlplane $ k get pv 
+      NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   REASON   AGE
+      pv-log   100Mi      RWX            Retain           Available                                   11m
+    ```
+
+7. Why is the claim not bound to the available Persistent Volume?
+
+    Due to different access modes.
+
+8. Update the Access Mode on the claim to bind it to the PV?
+
+    updated pvc file
+
+    ```yaml
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: claim-log-1
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 50Mi
+    ```
+
+    In terminal
+
+    ```bash
+      controlplane $ k delete pvc claim-log-1 
+      persistentvolumeclaim "claim-log-1" deleted
+      controlplane $ k apply -f my-pvc.yml 
+      persistentvolumeclaim/claim-log-1 created
+      controlplane $ k get pvc
+      NAME          STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+      claim-log-1   Bound    pv-log   100Mi      RWX                           23s
+    ```
+
+    status: Bound
+
+9. create vp, vpc, and mount a pod using vpc 
+
+  pv yaml file - nasr-pv.yml
+
+  ```yaml
+    apiVersion: v1
+    kind: PersistentVolume
+    metadata:
+      name: pv-log
+    spec:
+      capacity:
+        storage: 100Mi
+      accessModes:
+        - ReadWriteOnce
+      persistentVolumeReclaimPolicy: Retain
+      hostPath:
+        path: "/pv/log"
+  ```
+
+  pvc yaml file - nasr-pvc.yml
+
+  ```yaml
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: claim-log-1
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 100Mi
+  ```
+
+  pod yaml file - nasr-pod.yaml
+
+  ```yaml
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: webapp2
+    spec:
+      volumes:
+      - name: nasr-pvc
+        persistentVolumeClaim:
+          claimName: claim-log-1
+      containers:
+      - volumeMounts:
+        - name: nasr-pvc
+          mountPath: /log
+        env:
+        - name: LOG_HANDLERS
+          value: file
+        image: kodekloud/event-simulator
+        imagePullPolicy: Always
+        name: event-simulator
+  ```
+
+  In terminal
+
+  ```bash
+    controlplane $ vi nasr-pv.yml 
+    controlplane $ vi nasr-pvc.yml 
+    controlplane $ vi nasr-pod.yml 
+    controlplane $ k apply -f nasr-pv.yml 
+    persistentvolume/pv-log created
+    controlplane $ k apply -f nasr-pvc.yml 
+    persistentvolumeclaim/claim-log-1 created
+    controlplane $ k apply -f nasr-pod.yml 
+    pod/webapp2 created
+    controlplane $ k get pv
+    NAME     CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                 STORAGECLASS   REASON   AGE
+    pv-log   100Mi      RWO            Retain           Bound    default/claim-log-1                           19s
+    controlplane $ k get pvc
+    NAME          STATUS   VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+    claim-log-1   Bound    pv-log   100Mi      RWO                           19s
+    controlplane $ k get po
+    NAME      READY   STATUS    RESTARTS   AGE
+    webapp2   1/1     Running   0          18s
+    controlplane $ k exec -it webapp2 -- /bin/sh
+    / # cd log/
+    /log # ls
+    app.log   nasr.txt
+    /log # exit
+  ```
