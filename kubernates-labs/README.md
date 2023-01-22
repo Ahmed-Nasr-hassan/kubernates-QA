@@ -912,3 +912,177 @@ k logs -n nasr-space list-endpoints-in-nasr-space-27896516-c5p8w
     app.log   nasr.txt
     /log # exit
   ```
+
+## lab7
+
+1. The DevOps team would like to get the list of all Namespaces in the cluster. Get the list and save it to /opt/namespaces.
+
+    ```bash
+      controlplane $ k get ns > /opt/namespaces
+      controlplane $ cat /opt/namespaces 
+      NAME              STATUS   AGE
+      default           Active   30d
+      kube-node-lease   Active   30d
+      kube-public       Active   30d
+      kube-system       Active   30d
+    ```
+
+2. create  ServiceAccount named neptune-sa-v2 in Namespace neptune.
+
+    ```bash
+      controlplane $ k create namespace neptune
+      namespace/neptune created
+      
+      controlplane $ k create serviceaccount neptune-sa-v2 -n neptune 
+      serviceaccount/neptune-sa-v2 created
+    ```
+
+3. Create a new ConfigMap named cm-3392845. Use the spec given on the below.
+
+ConfigName Name: cm-3392845
+
+Data: DB_NAME=SQL3322
+
+Data: DB_HOST=sql322.mycompany.com
+
+Data: DB_PORT=3306
+
+```bash
+    controlplane $ vi configmap_data.txt # add data in a file
+
+    controlplane $ cat configmap_data.txt 
+    DB_NAME=SQL3322
+    DB_HOST=sql322.mycompany.com
+    DB_PORT=3306
+
+    controlplane $ k create configmap cm-3392845 --from-env-file=configmap_data.txt                        
+    configmap/cm-3392845 created
+```
+
+4. Team Pluto needs a new cluster internal Service. Create a ClusterIP Service named project-plt-6cc-svc in Namespace pluto. This Service should expose a single Pod named project-plt-6cc-api of image nginx:1.17.3-alpine, create that Pod as well. The Pod should be identified by label project: plt-6cc-api. The Service should use tcp port redirection of 3333:80.
+
+```bash
+    controlplane $ k create ns pluto
+    namespace/pluto created
+
+    controlplane $ k run project-plt-6cc-api --image=nginx:1.17.3-alpine --namespace pluto --labels project="plt-6cc-api"                         
+    pod/project-plt-6cc-api created
+
+    controlplane $ k expose --namespace pluto pod project-plt-6cc-api --type ClusterIP --port 3333 --target-port 80 --name project-plt-6cc-svc
+    service/project-plt-6cc-api exposed
+```
+
+5. Create a new PersistentVolume named earth-project-earthflower-pv. It should have a capacity of 2Gi, accessMode ReadWriteOnce, hostPath /Volumes/Data and no storageClassName defined.
+
+    ```yaml
+        apiVersion: v1
+        kind: PersistentVolume
+        metadata:
+          name: earth-project-earthflower-pv
+        spec:
+          capacity:
+            storage: 2Gi
+          accessModes:
+            - ReadWriteOnce
+          persistentVolumeReclaimPolicy: Recycle
+          hostPath:
+            path: /Volumes/Data
+    ```
+
+Next create a new PersistentVolumeClaim in Namespace earth named earth-project-earthflower-pvc . It should request 2Gi storage, accessMode ReadWriteOnce and should not define a storageClassName. The PVC should bound to the PV correctly.
+
+  ```yaml
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: earth-project-earthflower-pvc
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 2Gi
+  ```
+
+    ```bash
+      controlplane $ vi my-pv.yml
+      controlplane $ k apply -f my-pv.yml 
+      persistentvolume/earth-project-earthflower-pv created
+      controlplane $ vi my-pvc.yml 
+      controlplane $ k create ns earth                   
+      namespace/earth created
+      controlplane $ k apply -f my-pvc.yml --namespace earth 
+      persistentvolumeclaim/earth-project-earthflower-pvc created
+      controlplane $ k get pvc -n earth 
+      NAME                            STATUS   VOLUME                         CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+      earth-project-earthflower-pvc   Bound    earth-project-earthflower-pv   2Gi        RWO                           13s
+      controlplane $ k get pv  
+      NAME                           CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                 STORAGECLASS   REASON   AGE
+      earth-project-earthflower-pv   2Gi        RWO            Recycle          Bound    earth/earth-project-earthflower-pvc                           5m1s
+    ```
+
+Finally create a new Deployment project-earthflower in Namespace earth which mounts that volume at /tmp/project-data. The Pods of that Deployment should be of image httpd:2.4.41-alpine.
+
+```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: project-earthflower
+      name: project-earthflower
+      namespace: earth
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: project-earthflower
+      strategy: {}
+      template:
+        metadata:
+          creationTimestamp: null
+          labels:
+            app: project-earthflower
+        spec:
+          volumes:
+          - name: my-claim
+            persistentVolumeClaim:
+              claimName: earth-project-earthflower-pvc
+          
+          containers:
+          - image: httpd:2.4.41-alpine
+            name: httpd
+            resources: {}
+            volumeMounts:
+            - mountPath: "/tmp/project-data"
+              name: my-claim
+```
+
+```bash
+    controlplane $ k create deployment project-earthflower -n earth --image httpd:2.4.41-alpine -oyaml --dry-run=client > my-deployment.yml
+    
+    controlplane $ vi my-deployment.yml
+
+    controlplane $ k apply -f my-deployment.yml
+    deployment.apps/project-earthflower created
+
+    controlplane $ k get -n earth deployments.apps
+    NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+    project-earthflower   3/3     3            3           20s
+
+    controlplane $ k get -n earth po
+    NAME                                   READY   STATUS    RESTARTS   AGE
+    project-earthflower-57f97f68c9-c9p6c   1/1     Running   0          34s
+    project-earthflower-57f97f68c9-n664p   1/1     Running   0          34s
+    project-earthflower-57f97f68c9-vngmz   1/1     Running   0          34s
+
+    controlplane $ k exec -n earth project-earthflower-57f97f68c9-c9p6c -it -- /bin/sh
+    /usr/local/apache2 # cd /tmp/project-data/
+    /tmp/project-data # touch nasr.txt
+    /tmp/project-data # exit
+
+    controlplane $ k exec -n earth project-earthflower-57f97f68c9-n664p -it -- /bin/sh
+    /usr/local/apache2 # cd /tmp/project-data/
+    /tmp/project-data # ls
+    nasr.txt
+```
